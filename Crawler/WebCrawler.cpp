@@ -5,9 +5,11 @@
 #include "../Include/HTTP_HTTPs_Client.h"
 #include "../Include/INI_file.h"
 #include "../Include/Utils.h"
+#include "../Include/Thread_Pool.h"
 
 void parseLink(const URL& link, int depth, DB_Client& db)
 {
+	std::cout << "parse link" << link.host << " " << link.query << " " << link.query << std::endl;
 	try {
 		std::string html = getContent(link);
 
@@ -57,15 +59,20 @@ int main()
 		std::string start_page = ini_file.get_value("Client.start_page");
 		int recursion_depth = std::stoi(ini_file.get_value("Client.recursion_depth"));
 
+		std::string host = ini_file.get_value("DataBase.bd_host");
+		std::string port = ini_file.get_value("DataBase.bd_port");
 		std::string name = ini_file.get_value("DataBase.bd_name");
 		std::string user = ini_file.get_value("DataBase.bd_user");
 		std::string password = ini_file.get_value("DataBase.bd_pass");
 
-		DB_Client db(name, user, password);
+		DB_Client db(host, port, name, user, password);
 
 		URL link = First_URL_to_Link(start_page);
 
-		parseLink(link, recursion_depth, db);
+		Thread_Pool pool;
+		std::vector<std::function<void()> >tasks{ };
+		tasks.push_back([link, recursion_depth, &db]() {parseLink(link, recursion_depth, db);});
+		pool.submit(tasks);
 
 	}
 	catch (const std::exception& e)

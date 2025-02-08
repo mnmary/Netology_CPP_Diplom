@@ -11,7 +11,7 @@
 #include <windows.h>
 #undef WIN32_LEAN_AND_MEAN
 #endif
-//#include <Windows.h>
+
 #include <map>
 
 #include "../Include/INI_File.h"
@@ -42,7 +42,7 @@ int main()
 	{
 		INI_file ini_file("config.ini");
 
-		DB_Client db(ini_file.get_value("DataBase.bd_name"), ini_file.get_value("DataBase.bd_user"), ini_file.get_value("DataBase.bd_pass"));
+		DB_Client db(ini_file.get_value("DataBase.bd_host"), ini_file.get_value("DataBase.bd_port"), ini_file.get_value("DataBase.bd_name"), ini_file.get_value("DataBase.bd_user"), ini_file.get_value("DataBase.bd_pass"));
 
 		unsigned short port = static_cast<unsigned short>(std::stoi(ini_file.get_value("Server.server_port")));
 		auto const address = net::ip::make_address("0.0.0.0");
