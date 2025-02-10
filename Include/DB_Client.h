@@ -5,12 +5,12 @@ class DB_Client
 {
 private:
     std::string connectionString;
-    std::string DBName, DBUser, DBPassword;
+    std::string DBHost, DBPort, DBName, DBUser, DBPassword;
 	
     std::string createConnectionString()
     {
         //"host=127.0.0.1 port=5432 dbname=test user=postgres password=11223344"
-        std::string res = "dbname = " + DBName + " user = " + DBUser + " password = " + DBPassword;
+        std::string res = "host = "+ DBHost +" port= "+ DBPort +" dbname = " + DBName + " user = " + DBUser + " password = " + DBPassword;
         return res;
     }
 
@@ -23,7 +23,7 @@ private:
     }
 
 public:
-    DB_Client(const std::string& DBName, const std::string& DBUser, const std::string& DBPassword) : DBName{ DBName }, DBUser{ DBUser }, DBPassword{ DBPassword }
+    DB_Client(const std::string& DBHost, const std::string& DBPort, const std::string& DBName, const std::string& DBUser, const std::string& DBPassword) : DBHost{ DBHost }, DBPort{ DBPort }, DBName{ DBName }, DBUser{ DBUser }, DBPassword{ DBPassword }
     {
         connectionString = createConnectionString();
         pqxx::connection conn(connectionString);

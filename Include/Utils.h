@@ -32,6 +32,18 @@ struct URL
 	}
 };
 
+struct TqueueItem
+{
+	URL link;
+	int dept;
+
+	bool operator==(const TqueueItem& l) const
+	{
+		return link == l.link
+			&& dept == l.dept;
+	}
+};
+
 //trim
 void trim(std::string& s)
 {

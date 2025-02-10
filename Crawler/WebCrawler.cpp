@@ -12,76 +12,66 @@
 #include "../Include/Safe_Queue.h"
 
 std::vector<std::thread> arrThread;
-Safe_Queue<std::function <void()> > queue;
+//очередь состоит из ссылок на скачивание
+Safe_Queue <TqueueItem> queue;
 std::mutex mutex;
 
 bool stop{ false };
 
-void doWork()
+
+//пул потоков выполняет скачивание страницы по ссылке
+void doWork(DB_Client& db)
 {
 	std::cout << "thread id: " << std::this_thread::get_id() << std::endl;
 	while (!stop)
 	{
-		std::function<void()> work;
+		TqueueItem work;
 		std::unique_lock<std::mutex> lock(mutex);
 
 		if (!queue.empty())
 		{
 			work = queue.pop();
-			std::cout << "POP\n";
-			work();			
-		}
-		lock.unlock();
-	}
-}
+			std::cout << std::this_thread::get_id() << " POP " << work.link.host << work.link.query << " depth = " << work.dept << " " << "\n";
+			std::vector<URL> links;
+			std::string html = getContent(work.link);
 
-
-void parseLink(const URL& link, int depth, DB_Client& db)
-{
-	std::cout << "parse link: " << link.host << " " << link.query << " depth = " << depth << std::endl;
-	try 
-	{
-		std::string html = getContent(link);
-
-		if (html.size() == 0)
-		{
-			std::cout << ("Failed to get HTML Content from: " + link.host + link.query) << std::endl;
-			return;
-		}
-
-		// TODO: Parse HTML code here on your own
-		std::map<std::string, unsigned int> word_and_count(clear_html_tag(html)); //ключ слово, значение количество его повторений
-		if (word_and_count.size() > 0) 
-		{
-			db.addLink(word_and_count, link_to_string(link));
-		}
-
-		// TODO: Collect more links from HTML code and add them to the parser like that:
-
-		if (depth > 0) 
-		{
-			std::vector<URL> links(get_link(html, link)); // получаем ссылки если будем их использовать
-
-			size_t count = links.size();
-			size_t index = 0;
-			for (auto& subLink : links)
+			if (html.size() > 0)
 			{
-				if (!db.findUrl(subLink.host + subLink.query))
+				std::map<std::string, unsigned int> word_and_count(clear_html_tag(html)); //ключ слово, значение количество его повторений
+				if (word_and_count.size() > 0)
 				{
-					queue.push([subLink, depth, &db]() { parseLink(subLink, depth - 1, db); });
-					std::cout << "PUSH\n";
+					db.addLink(word_and_count, link_to_string(work.link));
+				}
 
-					std::this_thread::sleep_for(std::chrono::milliseconds(1));
+				links = get_link(html, work.link);
+				std::cout << "link = " << work.link.host << work.link.query << " links count " << links.size() << std::endl;
+			}
+
+			if (work.dept > 0)
+			{
+				std::cout << "depth > 0 links quan = " << links.size() << std::endl;
+				for (auto& subLink : links)
+				{
+					if (!db.findUrl(subLink.host + subLink.query))
+					{
+						TqueueItem qSubLink;
+						qSubLink.link = subLink;
+						qSubLink.dept = work.dept - 1;
+						queue.push(qSubLink);
+						std::cout << std::this_thread::get_id() << " PUSH " << qSubLink.link.host << qSubLink.link.query << " depth = " << qSubLink.dept << "\n";
+					}
 				}
 			}
+			
 		}
+		lock.unlock();
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
-	catch (const std::exception& e)
-	{
-		std::cout << e.what() << std::endl;
-	}
-
 }
+
+
+
+
 
 int main()
 {
@@ -105,16 +95,20 @@ int main()
 		int cntPool = std::thread::hardware_concurrency();
 		for (int i = 0; i < cntPool; i++)
 		{
-			arrThread.push_back(std::thread(&doWork));
+			arrThread.push_back(std::thread(&doWork, db));
 		}
 
 		//work
 		URL link = First_URL_to_Link(start_page);
 
-		queue.push([link, recursion_depth, &db]() {parseLink(link, recursion_depth, db);});
-		std::cout << "PUSH\n";
+		TqueueItem qFirstLink;
+		qFirstLink.link = link;
+		qFirstLink.dept = recursion_depth;
+		
+		queue.push(qFirstLink);
+		std::cout << std::this_thread::get_id() << " PUSH " << qFirstLink.link.host << qFirstLink.link.query << " depth = " << qFirstLink.dept << std::endl;
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		std::this_thread::sleep_for(std::chrono::seconds(2));
 		
 		//destroy		
 		std::unique_lock<std::mutex> lock(mutex);
